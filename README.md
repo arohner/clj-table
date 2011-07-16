@@ -1,9 +1,11 @@
-= Introduction = 
+Introduction
+============
 clj-table is an ORM for SQL databases. It's still new and isn't quite fully-featured, but it's useful for me. 
 
 Currently, it only works with Postgres, because that's what I use. Patches welcome!
 
-= Usage =
+Usage
+=====
 
 Require clj-table.user, then call deftable
 
@@ -17,31 +19,37 @@ You have to manually specify primary keys and columns right now, no table intros
 
 clj-table is built on clojure.contrib.sql for connectivity, so you'll need a c.c.sql connection:
 
-== find-one ==
+find-one
+--------
     (clojure.contrib.sql/with-connection db
         (person/find-one :where {:id 10}))
 
 Returns a single row, or nil. Find-one asserts that it returns at most one row.
 
-== find-all ==
+find-all
+--------
    (clojure.contrib.sql/with-connection db
         (person/find-one :where {:gender "m"}))
 
-== where clauses ==
+where clauses
+-------------
    Normally, the where clause queries on strict equality, i.e. :where {:id 10} generates the sql for ["where id = ?" 10]. The where clause can also take a set, to generate an IN clause:
    (clojure.contrib.sql/with-connection db
         (person/find-all :where {:id #{1 42 13}}))
  
 performs a query for "..WHERE id IN (1, 42,13).."
 
-== order-by ==
+order-by
+--------
     (person/find-all :order-by [:id])
     (song/find-all :order-by [:id :desc])
 
-== limits ==
+limits
+------
     (song/find-all :limit 3)
 
-= Associations =
+Associations
+============
 clj-table supports Rails style associations between tables.
 After defining two tables:
 
@@ -60,3 +68,7 @@ This will return one album row, with an extra column, recordings. Since :recordi
 Current associations are `has-one`, `has-many`, `belongs-to` and `has-many-through`.
 
 For more examples, see test/clj-table/test.clj
+
+License
+=======
+Licensed under the EPL, the same as Clojure
