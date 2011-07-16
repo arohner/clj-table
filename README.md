@@ -4,6 +4,10 @@ clj-table is an ORM for SQL databases. It's still new and isn't quite fully-feat
 
 Currently, it only works with Postgres, because that's what I use. Patches welcome!
 
+Installation
+============
+Add [clj-table "0.1.0"] to your project file.
+
 Usage
 =====
 
