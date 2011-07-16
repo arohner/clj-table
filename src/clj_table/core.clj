@@ -6,6 +6,7 @@
   (:require [clojure.contrib.sql :as contrib-sql])
   (:require [clojure.contrib.sql.internal :as contrib-sql-internal])
   (:require [clojure.contrib.seq :as seq])
+
   (:require [clj-table.sql :as sql])
   (:use [clj-table.utils :only (ref? has-keys? make-deftype-map-constructor map-keys str->int select-vals apply-if filter-vals disjoint?)]))
   

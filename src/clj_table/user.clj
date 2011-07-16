@@ -52,9 +52,9 @@ Optional Keys
 
    pre-insert-hook - a fn of one argument, the map of row attributes. Called before a row is inserted. Returns the updated row. 
 
-   to-db-hook - a fn of one argument, called with the where-map before selecting or updating
+   to-db-row-hook - a fn of one argument, called with the where-map before selecting or updating
 
-   from-db-hook - a fn of one argument, the row. Must 'update' the row. Called when selecting
+   from-db-row-hook - a fn of one argument, the row. Must 'update' the row. Called when selecting
 
    deftable will create a variety of functions in the same namespace. Use (clojure.contrib.ns-utils/docs namespace) to see them all."
   [varname {:keys [tablename primary-keys columns sequence-name primary-key-hook to-db-row-hook from-db-row-hook to-db-where-hook] :as args}]
@@ -106,6 +106,13 @@ options:
      example
       :where {:id 10}
 
+   :order-by
+     to order by column foo:
+      :order-by :foo
+     or
+     to order by column foo descending:
+      :order-by [:foo :desc]
+     
   :load seq-of-association-column-names
      the returned object will also have the association columns attached to the object. If the seq contains a map, loads the association named by the key, and the value is a seq of associations to load on the table named by the key.
 
@@ -137,7 +144,7 @@ options:
          (~'insert ~'attrs)))
      
      (defn ~'insert-many
-       "inserts multiple rows. attr-seq is a seq of maps"
+       "inserts multiple rows. attr-seq is a seq of maps. Returns nil."
        [~'attr-seq]
        (core/insert-rows ~varname ~'attr-seq))
      
