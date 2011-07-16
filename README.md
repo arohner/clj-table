@@ -28,16 +28,17 @@ Returns a single row, or nil. Find-one asserts that it returns at most one row.
 
 find-all
 --------
-   (clojure.contrib.sql/with-connection db
+    (clojure.contrib.sql/with-connection db
         (person/find-one :where {:gender "m"}))
 
 where clauses
 -------------
-   Normally, the where clause queries on strict equality, i.e. :where {:id 10} generates the sql for ["where id = ?" 10]. The where clause can also take a set, to generate an IN clause:
-   (clojure.contrib.sql/with-connection db
+Normally, the where clause queries on strict equality, i.e. `:where {:id 10}` generates the sql for `["where id = ?" 10]`. The where clause can also take a set, to generate an IN clause:
+
+    (clojure.contrib.sql/with-connection db
         (person/find-all :where {:id #{1 42 13}}))
  
-performs a query for "..WHERE id IN (1, 42,13).."
+performs a query for `..WHERE id IN (1, 42,13)..`
 
 order-by
 --------
@@ -63,7 +64,7 @@ has-many takes two vars defined by deftable, a map of source column to dest colu
 
     (clj-table.test.album/find-one :where {:name "Kind of Blue"} :load [:recordings])
 
-This will return one album row, with an extra column, recordings. Since :recordings was defined as has-many, it will be a set of recordings rows. If has-one is used instead, the column will point to a single row, or nil.
+This will return one album row, with an extra column, recordings. Since :recordings was defined as `has-many`, it will be a set of recordings rows. If `has-one` is used instead, the column will point to a single row, or nil.
 
 Current associations are `has-one`, `has-many`, `belongs-to` and `has-many-through`.
 
