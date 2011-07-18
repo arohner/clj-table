@@ -67,15 +67,17 @@ Optional Keys
         tablename (str (or tablename varname))
 	row-class-name (symbol (str varname "-row"))
 	symbol-columns (into [] (map (comp symbol name) columns))
-        row-?-name (symbol (str varname "?"))]
+        row-?-name (symbol (str varname "?"))
+        table-ns *ns*]
     (assert (> (count tablename) 0))
   `(do
      (declare ~varname)
      (defrecord ~row-class-name [~@symbol-columns] 
        core/Row
        (table [this#]
-              (assert ~varname)
-              ~varname)
+              (let [rc# @(ns-resolve (quote ~table-ns) (quote ~varname))] ;; resolve, to make sure the record field doesn't shadow the var name
+                (throw-if-not (clj-table.core/table? rc#) "expected table, got %s" rc#)
+                rc#))
        IFn
        (applyTo [this# #^ISeq seq]
                 (apply ~row-fn this# seq))
