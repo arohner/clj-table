@@ -137,13 +137,10 @@ options:
        (core/insert-row ~varname ~'attrs {:select? ~'select?}))
 
      (defn ~'intern-row
-       "queries for a row with the primary keys of the given attributes. Returns it if present, else inserts a row with those attributes"
-       [~'attrs]
-       (if (core/has-primary-keys? ~varname ~'attrs)
-         (let [pkeys# (core/primary-key-map ~varname ~'attrs)]
-           (or (~'find-one :where pkeys#)
-               (~'insert ~'attrs)))
-         (~'insert ~'attrs)))
+       "queries for a row with where-attrs attributes. Returns it if present, else inserts a row with insert attributes. Where-attrs should include the primary key(s) or a unique index, or unpredictable behavior will occur."
+       [~'where-attrs & ~'insert-attrs]
+       (or (~'find-one :where ~'where-attrs)
+           (~'insert (or ~'insert-attrs ~'where-attrs))))
      
      (defn ~'insert-many
        "inserts multiple rows. attr-seq is a seq of maps. Returns nil."

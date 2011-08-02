@@ -1,7 +1,7 @@
 (ns clj-table.core
   (:import java.util.regex.Pattern)
   (:require [clojure.set :as set])
-  (:use [clojure.contrib.except :only [throwf]])
+  (:use [clojure.contrib.except :only [throwf throw-if-not]])
   (:require [clojure.string :as str])
   (:require [clojure.contrib.sql :as contrib-sql])
   (:require [clojure.contrib.sql.internal :as contrib-sql-internal])
@@ -271,7 +271,9 @@
 
    example: (build-row-cache [(foo/find-all) (bar/find-all)]) "
   [results-seq]
-  {:post [(ref? %)
+  {:pre [(every? set? results-seq)
+         (every? #(every? row? %) results-seq)]
+   :post [(ref? %)
           (every? table? (keys @%))
           (every? coll? (vals @%))]}
   (let [row (first (first results-seq))]
@@ -638,7 +640,7 @@
 (defn select [table & {:keys [where load order-by limit]}]
   {:pre [(table? table)]}
   "where is a map of attrs to values. load a seq of (potentially nested) column names"
-
+  (throw-if-not (table? table))
   (let [original-where where
         mangled-table-name (mangle-table-name (:name @table) 1)
         joins (if load (find-nested-associations table load) [])
@@ -669,12 +671,15 @@
         (assert row-map)
         (load-associations-from-cache rows :load load :cache cache)))))
 
+(defn map-to-row [table m]
+  ((:row-map-constructor @table) (select-keys m (:columns @table))))
+
 (defn prepare-insert 
   "do all necessary stuff before inserting a row in the DB"
   [table row]
   {:pre [(map? row)]
    :post [(has-primary-keys? table %)]}
-  (let [row ((:row-map-constructor @table) (select-keys row (:columns @table)))
+  (let [row (map-to-row table row)
         pkey-hook (if (has-primary-keys? table row)
                     identity
                     #((:primary-key-hook @table) table %))
@@ -684,22 +689,24 @@
      pkey-hook
      pre-insert-hook)))
 
+(defn assert-primary-keys [row]
+  (throw-if-not (row? row) "%s is not a row" row)
+  (throw-if-not (table row))
+  (throw-if-not (has-primary-keys? (table row) row) "table %s: primary-keys are %s, got %s" (:name @(table row)) (primary-keys row) (select-keys row (primary-keys row)))
+  true)
+
 (defn insert-row
   [table attrs {:keys [select?] :or {:select? true}}]
   {:pre [(map? attrs)]
    :post [(if select?
-            (do
-              (row? %)
-              (has-primary-keys? table %))
-            (= nil %))]}
+            (assert-primary-keys %)
+            (nil? %))]}
   (let [row (prepare-insert table attrs)
         row (filter-vals #(not (nil? %)) row)
         from-db-hook (or (:from-db-row-hook @table) identity)]
-    (sql/insert (:name @table) row)
-    (when select?
-      (->
-       (find-one table [:where row])
-       from-db-hook))))
+    (->> row
+     (sql/insert (:name @table))
+     (map-to-row table))))
 
 (defn insert-rows [table attr-seq]
   (doseq [row attr-seq]
