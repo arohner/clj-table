@@ -647,12 +647,10 @@
   "where is a map of attrs to values. load a seq of (potentially nested) column names"
   (throw-if-not (table? table))
   (let [original-where where
-        mangled-table-name (mangle-table-name (:name @table) 1)
         joins (if load (find-nested-associations table load) [])
         {:keys [where order-by limit]} (if (and (seq joins) limit)
                                          (select-ids table :where where :order-by order-by :limit limit)
                                          {:where where :order-by order-by :limit limit})
-        mangled-where (expand-where-map mangled-table-name where)
         query (select-outer-join-query-str table :where where :joins joins :order-by order-by :limit limit)]
     (jdbc/with-query-results rows (apply vector query (sql/where-map-prepared-values where))
       (let [row-map (group-outer-join-rows rows)

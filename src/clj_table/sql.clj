@@ -38,6 +38,7 @@
 
 (defn where-val->str [val & {:keys [literal]}]
   (cond
+   (nil? val) (format " is null")
    (coll? val) (format " = ANY(%s) " (where-val-coll->str val))
    literal (str "= " (escape val))
    :else (str "= ?")))
@@ -54,11 +55,10 @@
 
 (defn where-map-prepared-values
   "returns the seq of values that should show up in the prepared
-  statement. i.e. filters out the values that shouldn't show up,
-  because they're literals in the query because they can't belong in a
-  prepared statement"
+  statement. i.e. filters out the values that shouldn't show up"
   [where-map]
-  (filter #(not (coll? %)) (vals where-map)))
+  (remove #(or (nil? %)
+               (coll? %)) (vals where-map)))
 
 (defn update [table where-map set-map]
   (sql/update-values (:name @table) (apply vector (where-map->str where-map) (vals where-map)) set-map))
