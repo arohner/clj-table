@@ -1,7 +1,7 @@
 (ns clj-table.test
   (:import org.postgresql.ds.PGSimpleDataSource)
   (:require [clj-table.user :as table])
-  (:require [clojure.contrib.sql :as sql])
+  (:require [clojure.java.jdbc :as jdbc])
   (:use clojure.test)
   (:use [clojure.contrib.with-ns :only (with-ns)])
   (:require [clj-table.test.person :as person])
@@ -22,33 +22,33 @@
 
 (defn create-test-db []
   (println "creating test DB")
-  (sql/create-table
+  (jdbc/create-table
    :person
    [:id "serial" "primary key" ]
    [:name "varchar(32)"])
   
-  (sql/create-table
+  (jdbc/create-table
    :album
    [:id "serial" "primary key"]
    [:name "varchar(32)"]
    [:release_date "varchar(32)"])
   
-  (sql/create-table
+  (jdbc/create-table
    :song
    [:id "serial" "primary key"]
    [:name "varchar(64)"])
   
-  (sql/create-table
+  (jdbc/create-table
    :song_composers
    [:song_id "integer" "not null"]
    [:person_id "integer" "not null"])
   
-  (sql/create-table
+  (jdbc/create-table
    :recording
    [:album_id "integer" "not null"]
    [:song_id "integer" "not null"])
   
-  (sql/create-table
+  (jdbc/create-table
    :album_performance
    [:album_id "integer" "not null"]
    [:person_id "integer" "not null"]
@@ -58,7 +58,7 @@
   (println "dropping test DB")
   (doseq [table [:person :album :song :recording :song_composers :album_performance]]
     (try
-     (sql/drop-table table)
+     (jdbc/drop-table table)
      (catch Exception e
        (println e)))))
 
@@ -75,8 +75,8 @@
 (table/belongs-to performance/performance album/album {:album_id :id} :album)
 
 (defn insert-data []
-  (sql/with-connection db
-    (sql/transaction
+  (jdbc/with-connection db
+    (jdbc/transaction
      (def miles (person/insert {:name "Miles Davis"}))
      (def paul (person/insert {:name "Paul Chambers"}))
      (def jimmy (person/insert {:name "Jimmy Cobb"}))
@@ -103,7 +103,7 @@
      (composer/insert {:song_id (:id blue-in-green) :person_id (:id bill)}))))
 
 (defn setup-fixture [f]
-  (sql/with-connection db
+  (jdbc/with-connection db
     (drop-test-db)
     (create-test-db)
     (insert-data)
@@ -112,7 +112,9 @@
 (use-fixtures :once setup-fixture)
 
 (deftest test-select
-  (is (person/find-one :where {:name "Miles Davis"})))
+  (let [row (person/find-one :where {:name "Miles Davis"})]
+    (is (map? row))
+    (is (integer? (:id row)))))
 
 (deftest test-select-many
   (let [result (performance/find-all :where {:album_id (:id kind-of-blue)})]

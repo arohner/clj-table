@@ -11,61 +11,6 @@
 (defmethod escape String [x]
    (format "$$%s$$" x))
 
-(defn execute
-  "Executes an (optionally parameterized) SQL prepared statement on the
-  open database connection. Each param-group is a seq of values for all of
-  the parameters.
-
-  This is the same as c.c.sql/do-prepared, but returns the generated keys. Uses .execute rather than .executeBatch because .executeBatch + returnGeneratedKeys is broken with postgresql."
-  [sql & param-groups]
-  (with-open [stmt (.prepareStatement #^java.sql.Connection (sql/connection) sql Statement/RETURN_GENERATED_KEYS)]
-    (doseq [param-group param-groups]
-      (doseq [[index value] (map vector (iterate inc 1) param-group)]
-        (.setObject stmt index value))
-      (.addBatch stmt))
-    (sql/transaction
-     (.execute stmt)
-     (-> stmt (.getGeneratedKeys) (resultset-seq) (doall)))))
-
-(defn insert-values
-  "Inserts rows into a table with values for specified columns only.
-  column-names is a vector of strings or keywords identifying columns. Each
-  value-group is a vector containing a values for each column in
-  order. When inserting complete rows (all columns), consider using
-  insert-rows instead.
-
-  Same as c.c.sql/insert-values, but calls our execute rather than c.c.sql/do-prepared"
-  [table column-names & value-groups]
-  (let [column-strs (map name column-names)
-        n (count (first value-groups))
-        template (apply str (interpose "," (replicate n "?")))
-        columns (if (seq column-names)
-                  (format "(%s)" (apply str (interpose "," column-strs)))
-                  "")]
-    (apply execute
-           (format "INSERT INTO %s %s VALUES (%s)"
-                   (name table) columns template)
-           value-groups)))
-
-(defn insert-rows
-  "Inserts complete rows into a table. Each row is a vector of values for
-  each of the table's columns in order."
-  [table & rows]
-  (apply insert-values table nil rows))
-
-(defn insert-records
-  "Inserts records into a table. records are maps from strings or
-  keywords (identifying columns) to values."
-  [table & records]
-  (doall (apply concat
-                (for [record records]
-                  (insert-values table (keys record) (vals record))))))
-
-(defn insert
-  "insert a single row"
-  [table attrs]
-  (first (insert-records table attrs)))
-
 (defn comma-separated [coll]
   (str/join ", " coll))
 

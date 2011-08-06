@@ -3,8 +3,7 @@
   (:require [clojure.set :as set])
   (:use [clojure.contrib.except :only [throwf throw-if-not]])
   (:require [clojure.string :as str])
-  (:require [clojure.contrib.sql :as contrib-sql])
-  (:require [clojure.contrib.sql.internal :as contrib-sql-internal])
+  (:require [clojure.java.jdbc :as jdbc])
   (:require [clojure.contrib.seq :as seq])
 
   (:require [clj-table.sql :as sql])
@@ -19,7 +18,7 @@
   (and
    (ref? t)
    (map? @t)
-   (has-keys? @t [:name :primary-keys :columns :row-deftype :associations :primary-key-hook :to-db-row-hook :from-db-row-hook :to-db-where-hook :row-map-constructor])))
+   (has-keys? @t [:name :primary-keys :columns :row-deftype :associations :row-map-constructor])))
 
 (defn row? 
   "With one argument, returns true if row implements the Row protocol. With two args, returns true if row implements the row protocol and came from table."
@@ -60,12 +59,9 @@
   [table raw-row]
   {:pre [(map? raw-row)]
    :post [(row? table %)]}
-
   (let [row ((:row-map-constructor @table) raw-row)]
     (assert (row? row))
-    (if-let [hook (:from-db-row-hook @table)] 
-      (hook row)
-      row)))
+    row))
 
 (defn table-without-schema [table-name]
   {:pre [table-name
@@ -271,11 +267,15 @@
 
    example: (build-row-cache [(foo/find-all) (bar/find-all)]) "
   [results-seq]
-  {:pre [(every? set? results-seq)
+  {:pre [(every? coll? results-seq)
          (every? #(every? row? %) results-seq)]
    :post [(ref? %)
           (every? table? (keys @%))
-          (every? coll? (vals @%))]}
+          (every? coll? (vals @%))
+          (->> @%
+               vals
+               (map :rows)
+               (every? coll?))]}
   (let [row (first (first results-seq))]
     (assert (or (row? row) (nil? row))))
   
@@ -602,15 +602,19 @@
 (defn load-associations-from-cache
   "Loads associations onto rows. Takes two keys, :load is a standard load clause. :cache is a seq of of calls to find-one, find-all, or the result of a call to build-row-cache"
   [rows & opts]
+  {:post [(or (row? %) ;; one row
+              (and     ;; or a coll of rows
+               (coll? %)
+               (every? row? %)))]}
   (let [singular-row? (row? rows)
         rows (if singular-row? [rows] rows)
         opts (apply hash-map opts)
         {:keys [cache load order-seq]} opts
         cache (if (ref? cache) cache (build-row-cache cache))
-        rows (doall (for [row rows]
-             (if load
-               (load-nested-associations row load cache)
-               row)))]
+        rows (for [row rows]
+               (if load
+                 (load-nested-associations row load cache)
+                 row))]
     (if singular-row?
       (first rows)
       rows)))
@@ -638,20 +642,19 @@
         (assoc :where where))))
 
 (defn select [table & {:keys [where load order-by limit]}]
-  {:pre [(table? table)]}
+  {:pre [(table? table)]
+   :post [(coll? %)]}
   "where is a map of attrs to values. load a seq of (potentially nested) column names"
   (throw-if-not (table? table))
   (let [original-where where
         mangled-table-name (mangle-table-name (:name @table) 1)
         joins (if load (find-nested-associations table load) [])
-        where-hook (or (:to-db-where-hook @table) identity)
-        where (where-hook where)
         {:keys [where order-by limit]} (if (and (seq joins) limit)
                                          (select-ids table :where where :order-by order-by :limit limit)
                                          {:where where :order-by order-by :limit limit})
         mangled-where (expand-where-map mangled-table-name where)
         query (select-outer-join-query-str table :where where :joins joins :order-by order-by :limit limit)]
-    (clojure.contrib.sql/with-query-results rows (apply vector query (sql/where-map-prepared-values where))
+    (jdbc/with-query-results rows (apply vector query (sql/where-map-prepared-values where))
       (let [row-map (group-outer-join-rows rows)
             all-tables (concat [table] (map :tgt-table joins))
             row-map (reduce (fn [row-map [table new-set]]
@@ -674,39 +677,23 @@
 (defn map-to-row [table m]
   ((:row-map-constructor @table) (select-keys m (:columns @table))))
 
-(defn prepare-insert 
-  "do all necessary stuff before inserting a row in the DB"
-  [table row]
-  {:pre [(map? row)]
-   :post [(has-primary-keys? table %)]}
-  (let [row (map-to-row table row)
-        pkey-hook (if (has-primary-keys? table row)
-                    identity
-                    #((:primary-key-hook @table) table %))
-        pre-insert-hook (or (:to-db-row-hook @table) identity)]
-    (->
-     row
-     pkey-hook
-     pre-insert-hook)))
-
-(defn assert-primary-keys [row]
-  (throw-if-not (row? row) "%s is not a row" row)
-  (throw-if-not (table row))
-  (throw-if-not (has-primary-keys? (table row) row) "table %s: primary-keys are %s, got %s" (:name @(table row)) (primary-keys row) (select-keys row (primary-keys row)))
-  true)
+(defn assert-primary-keys
+  ([row]
+     (throw-if-not (row? row) "%s is not a row" row)
+     (throw-if-not (table row))
+     (assert-primary-keys (table row) row))
+  ([table row]
+     (throw-if-not (has-primary-keys? table row) "table %s: primary-keys are %s, got %s" (:name table) (primary-keys-table table) (select-keys row (primary-keys-table table)))
+     true))
 
 (defn insert-row
-  [table attrs {:keys [select?] :or {:select? true}}]
-  {:pre [(map? attrs)]
-   :post [(if select?
-            (assert-primary-keys %)
-            (nil? %))]}
-  (let [row (prepare-insert table attrs)
-        row (filter-vals #(not (nil? %)) row)
-        from-db-hook (or (:from-db-row-hook @table) identity)]
+  [table attrs]
+  {:pre [(map? attrs)]}
+  (let [row (map-to-row table attrs)
+        row (filter-vals #(not (nil? %)) row)]
     (->> row
-     (sql/insert (:name @table))
-     (map-to-row table))))
+         (jdbc/insert-record (:name @table))
+         (map-to-row table))))
 
 (defn insert-rows [table attr-seq]
   (doseq [row attr-seq]
@@ -714,7 +701,7 @@
 
 (defn delete [table where-map]
   {:pre [(map? where-map)]}
-  (contrib-sql/delete-rows (:name @table) (apply vector (sql/where-map->str where-map) (sql/where-map-prepared-values where-map))))
+  (jdbc/delete-rows (:name @table) (apply vector (sql/where-map->str where-map) (sql/where-map-prepared-values where-map))))
 
 (defn delete-row [table row]
   {:pre [(row? row)]}
@@ -728,17 +715,16 @@
        (assert (map? where-map))
        (delete table where-map)))
   ([table]
-     (contrib-sql/delete-rows (:name @table) ["true"])))
+     (jdbc/delete-rows (:name @table) ["true"])))
 
 (defn update-table [table where-attrs set-attrs]
-  (let [hook (or (:to-db-where-hook @table) identity)]
-    (sql/update table (hook where-attrs) set-attrs)))
+  (sql/update table where-attrs set-attrs))
 
 (defn row-select-keys [row keyseq]
   (select-keys @row keyseq))
 
 (defn get-connection-backend []
-  (-> (contrib-sql/connection) .getMetaData .getDatabaseProductName))
+  (-> (jdbc/connection) .getMetaData .getDatabaseProductName))
 
 (defmulti default-pkey-next-val (fn [table] (get-connection-backend)))
 (defmulti default-primary-key-func (fn [table row] (get-connection-backend))) 

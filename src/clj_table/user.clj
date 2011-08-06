@@ -90,11 +90,7 @@ Optional Keys
 		     :columns ~columns
 		     :row-deftype ~row-class-name
 		     :associations #{}
-                     :primary-key-hook (or ~primary-key-hook core/default-primary-key-func)
-                     :from-db-row-hook (or ~from-db-row-hook nil)
-                     :to-db-row-hook (or ~to-db-row-hook nil)
-                     :to-db-where-hook (or ~to-db-where-hook nil)
-		     :row-map-constructor (make-deftype-map-constructor ~row-class-name)}))
+                     :row-map-constructor (make-deftype-map-constructor ~row-class-name)}))
 
      (defn ~'primary-keys []
        (:primary-keys @~varname))
@@ -133,14 +129,14 @@ options:
 
      (defn ~'insert 
        "inserts a single row with the given attributes. attrs is a map of column names to values. Returns the inserted row. Pass :select? false to return nil (and avoid an extra select)"
-       [~'attrs & {:keys [~'select?] :or {~'select? true} :as ~'args}]
-       (core/insert-row ~varname ~'attrs {:select? ~'select?}))
+       [~'attrs]
+       (core/insert-row ~varname ~'attrs))
 
      (defn ~'intern-row
        "queries for a row with where-attrs attributes. Returns it if present, else inserts a row with insert attributes. Where-attrs should include the primary key(s) or a unique index, or unpredictable behavior will occur."
-       [~'where-attrs & ~'insert-attrs]
+       [~'where-attrs & [~'insert-attrs]]
        (or (~'find-one :where ~'where-attrs)
-           (~'insert (or ~'insert-attrs ~'where-attrs))))
+           (~'insert (merge ~'where-attrs ~'insert-attrs))))
      
      (defn ~'insert-many
        "inserts multiple rows. attr-seq is a seq of maps. Returns nil."
