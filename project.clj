@@ -1,4 +1,4 @@
-(defproject clj-table "0.1.3"
+(defproject clj-table "0.1.4"
   :description "a SQL ORM for clojure"
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
