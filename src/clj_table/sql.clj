@@ -1,6 +1,5 @@
 (ns clj-table.sql
-  (:require [clojure.contrib.sql :as sql])
-  ;; (:use [winston.utils :only (inspect apply-if)])
+  (:require [clojure.java.jdbc :as jdbc])
   (:require [clojure.string :as str])
   (:import java.sql.Statement))
 
@@ -61,8 +60,8 @@
                (coll? %)) (vals where-map)))
 
 (defn update [table where-map set-map]
-  (sql/update-values (:name @table) (apply vector (where-map->str where-map) (vals where-map)) set-map))
+  (jdbc/update-values (:name @table) (apply vector (where-map->str where-map) (vals where-map)) set-map))
 
 (defn query [sql & args]
-  (sql/with-query-results results (into [] (concat [sql] args))
+  (jdbc/with-query-results results (into [] (concat [sql] args))
     (seq (doall results))))
