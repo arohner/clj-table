@@ -83,13 +83,13 @@ Optional Keys
        (invoke [this# arg#]
                (~row-fn this# arg#)))
 
-     (def ~varname (ref 
-		    {:name ~tablename 
-		     :primary-keys (map keyword (quote ~primary-keys))
-		     :columns (map keyword (quote ~columns))
-		     :row-deftype ~row-class-name
-		     :associations #{}
-                     :row-map-constructor (make-deftype-map-constructor ~row-class-name)}))
+     (defonce ~varname (ref 
+                        {:name ~tablename 
+                         :primary-keys (map keyword (quote ~primary-keys))
+                         :columns (map keyword (quote ~columns))
+                         :row-deftype ~row-class-name
+                         :associations #{}
+                         :row-map-constructor (make-deftype-map-constructor ~row-class-name)}))
 
      (defn ~'primary-keys []
        (:primary-keys @~varname))
