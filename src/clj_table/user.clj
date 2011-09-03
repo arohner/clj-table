@@ -2,9 +2,8 @@
   (:import clojure.lang.IPersistentMap clojure.lang.IFn clojure.lang.ISeq)
   (:refer-clojure :exclude [get get-in])
   (:require [clj-table.core :as core])
-  (:use [clojure.contrib.except :only (throwf throw-if-not)])
   (:require clj-table.backends)
-  (:use [clj-table.utils :only (subset? make-deftype-map-constructor)]))
+  (:use [clj-table.utils :only (subset? make-deftype-map-constructor throwf throw-if-not)]))
 
 ;;; The user-visible part of the table API
 
@@ -57,7 +56,7 @@ Optional Keys
    from-db-row-hook - a fn of one argument, the row. Must 'update' the row. Called when selecting
 
    deftable will create a variety of functions in the same namespace. Use (clojure.contrib.ns-utils/docs namespace) to see them all."
-  [varname {:keys [tablename primary-keys columns sequence-name primary-key-hook to-db-row-hook from-db-row-hook to-db-where-hook] :as args}]
+  [varname & {:keys [tablename primary-keys columns sequence-name primary-key-hook to-db-row-hook from-db-row-hook to-db-where-hook] :as args}]
 
   (throw-if-not primary-keys "primary-keys is required")
   (throw-if-not columns " columns is required")
@@ -86,8 +85,8 @@ Optional Keys
 
      (def ~varname (ref 
 		    {:name ~tablename 
-		     :primary-keys ~primary-keys
-		     :columns ~columns
+		     :primary-keys (map keyword (quote ~primary-keys))
+		     :columns (map keyword (quote ~columns))
 		     :row-deftype ~row-class-name
 		     :associations #{}
                      :row-map-constructor (make-deftype-map-constructor ~row-class-name)}))

@@ -66,3 +66,16 @@
   [a b]
   {:pre [(set? a) (set? b)] }
   (= (clojure.set/intersection a b) a))
+
+(defn throwf
+  "similar to c.c.except/throwf"
+  [fmt-string & fmt-args]
+  (throw (Exception. (apply format fmt-string fmt-args))))
+
+(defn throw-if-not
+  ([test]
+     (when-not test
+       (throw (Exception.))))
+  ([test fmt-string & fmt-args]
+     (when-not test
+       (throw (Exception. (apply format fmt-string fmt-args))))))

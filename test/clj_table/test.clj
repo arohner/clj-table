@@ -3,7 +3,6 @@
   (:require [clj-table.user :as table])
   (:require [clojure.java.jdbc :as jdbc])
   (:use clojure.test)
-  (:use [clojure.contrib.with-ns :only (with-ns)])
   (:require [clj-table.test.person :as person])
   (:require [clj-table.test.album :as album])
   (:require [clj-table.test.song :as song])

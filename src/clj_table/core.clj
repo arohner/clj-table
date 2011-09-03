@@ -1,10 +1,9 @@
 (ns clj-table.core
   (:import java.util.regex.Pattern)
   (:require [clojure.set :as set])
-  (:use [clojure.contrib.except :only [throwf throw-if-not]])
+  (:use [clj-table.utils :only [throwf throw-if-not]])
   (:require [clojure.string :as str])
   (:require [clojure.java.jdbc :as jdbc])
-  (:require [clojure.contrib.seq :as seq])
 
   (:require [clj-table.sql :as sql])
   (:use [clj-table.utils :only (ref? has-keys? make-deftype-map-constructor map-keys str->int select-vals apply-if filter-vals disjoint?)]))
